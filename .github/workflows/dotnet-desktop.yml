@@ -1,0 +1,31 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore HostDownloader.sln
+      working-directory: ./HostDownloader
+
+    - name: Build
+      run: dotnet build HostDownloader.sln --configuration Release --no-restore
+      working-directory: ./HostDownloader
+
+    - name: Test
+      run: dotnet test HostDownloader.sln --no-build --verbosity normal
+      working-directory: ./HostDownloader
