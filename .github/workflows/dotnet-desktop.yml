@@ -23,9 +23,9 @@ jobs:
       working-directory: ./HostDownloader
 
     - name: Build
-      run: dotnet build HostDownloader.sln --configuration Release --no-restore
+      run: dotnet build HostDownloader.slnx --configuration Release --no-restore
       working-directory: ./HostDownloader
 
     - name: Test
-      run: dotnet test HostDownloader.sln --no-build --verbosity normal
+      run: dotnet test HostDownloader.slnx --no-build --verbosity normal
       working-directory: ./HostDownloader

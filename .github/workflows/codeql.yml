@@ -49,8 +49,8 @@ jobs:
       if: matrix.build-mode == 'manual'
       shell: pwsh
       run: |
-        dotnet restore HostDownloader/HostDownloader.sln
-        dotnet build HostDownloader/HostDownloader.sln --configuration Release --no-incremental
+        dotnet restore HostDownloader/HostDownloader.slnx
+        dotnet build HostDownloader/HostDownloader.slnx --configuration Release --no-incremental
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4
