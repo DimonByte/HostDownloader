@@ -20,6 +20,7 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+using HostDownloader.Modules;
 using HostDownloader.Modules.DownloadSystem;
 
 namespace HostDownloader.Modules.WindowsSystem
@@ -83,7 +84,7 @@ namespace HostDownloader.Modules.WindowsSystem
             }
             if (ShowHelp)
             {
-                Console.WriteLine("[!] Configuration files and folders have been created in the directory where this program is stored. Please refer to the documentation to configure. HostDownloader will now exit.");
+                Console.WriteLine("[!] Configuration files and folders have been created in the directory where this program is stored.\nPlease refer to the documentation on the main GitHub page of HostlistDownloader to configure. Once configured, run HostlistDownloader again. HostlistDownloader will now exit.");
                 Environment.Exit(0);
             }
             if (checkForCorruption)
@@ -152,7 +153,7 @@ namespace HostDownloader.Modules.WindowsSystem
                     }
                     else
                     {
-                        TraceLogger.Log($"Critical configuration file missing: {userConfigFile}. HostDownloader cannot continue without this file. Please ensure the file exists and is accessible.", Enums.StatusSeverityType.Fatal);
+                        TraceLogger.Log($"Critical configuration file missing: {userConfigFile}. HostlistDownloader cannot continue without this file. Please ensure the file exists and is accessible.", Enums.StatusSeverityType.Fatal);
                     }
                 }
                 TraceLogger.Log("Configuration corruption check completed.");

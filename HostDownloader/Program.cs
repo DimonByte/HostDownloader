@@ -26,5 +26,5 @@ using HostDownloader.Modules.WindowsSystem;
 IOManager.CreateNecessaryDirectoriesAndFiles();
 TraceLogger.ClearExpiredLogs();
 HostListManager.UpdateLists();
-TraceLogger.Log("HostDownloader complete.");
+TraceLogger.Log("HostlistDownloader complete.");
 Environment.Exit(0);

@@ -20,6 +20,7 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+using HostDownloader.Modules;
 using HostDownloader.Modules.WindowsSystem;
 
 namespace HostDownloader.Modules.DownloadSystem
