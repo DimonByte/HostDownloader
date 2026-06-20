@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostDownloader.Modules;
 using HostDownloader.Modules.WindowsSystem;
 
 namespace HostDownloader.Modules.DownloadSystem
@@ -29,10 +28,12 @@ namespace HostDownloader.Modules.DownloadSystem
     {
         public static void UpdateLists()
         {
+            IOManager.ClearFiles(IOManager.BlockListFolderLocation);
+            IOManager.ClearFiles(IOManager.WhiteListFolderLocation);
             TraceLogger.Log($"Downloading and updating blocklists and whitelists...", Enums.StatusSeverityType.Information);
             DownloadListsAsync(IOManager.IniBlockListFileLocation, IOManager.BlockListFolderLocation, IOManager.CombinedBlockListFileLocation).GetAwaiter().GetResult();
             DownloadListsAsync(IOManager.IniWhiteListFileLocation, IOManager.WhiteListFolderLocation, IOManager.CombinedWhiteListFileLocation).GetAwaiter().GetResult();
-            TraceLogger.Log("Attempting to merge user lists...");
+            TraceLogger.Log("Attempting to merge user defined website lists...");
             try
             {
                 string[] UserWebsiteWhitelistLines = File.ReadAllLines(IOManager.UserWebsiteWhiteListFileLocation);
@@ -44,7 +45,7 @@ namespace HostDownloader.Modules.DownloadSystem
             {
                 TraceLogger.Log($"Fault during update of lists! {ex}");
             }
-            TraceLogger.Log("Update Lists Completed");
+            TraceLogger.Log("Host lists Update Completed!");
         }
 
         private static async Task DownloadListsAsync(string IniLocation, string ListFolderLocation, string CombinedListLocation)

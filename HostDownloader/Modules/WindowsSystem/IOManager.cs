@@ -20,7 +20,6 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostDownloader.Modules;
 using HostDownloader.Modules.DownloadSystem;
 
 namespace HostDownloader.Modules.WindowsSystem
@@ -221,7 +220,16 @@ namespace HostDownloader.Modules.WindowsSystem
             {
                 try
                 {
-                    File.Delete(file);
+                    if (file.Contains("combined"))
+                    {
+                        TraceLogger.Log($"{file} cleared instead of deleted.");
+                        File.WriteAllText(file, "");
+                    }
+                    else
+                    {
+                        TraceLogger.Log($"{file} deleted.");
+                        File.Delete(file);
+                    }
                 }
                 catch (Exception ex)
                 {
