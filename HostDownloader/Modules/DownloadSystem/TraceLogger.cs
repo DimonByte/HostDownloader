@@ -23,9 +23,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
-using static HostDownloader.Modules.Enums;
+using static HostlistDownloader.Modules.Enums;
 
-namespace HostDownloader.Modules.DownloadSystem
+namespace HostlistDownloader.Modules.DownloadSystem
 {
     public static class TraceLogger
     {
@@ -115,7 +115,8 @@ namespace HostDownloader.Modules.DownloadSystem
             }
             if (severity == StatusSeverityType.Fatal)
             {
-                Environment.FailFast($"A fatal exception has occurred - HostDirectory must exit: {logEntry}");
+                Log($"[FAULT STOP] A fatal exception has occurred - HostDirectory must exit. Trace Message: {logEntry}", StatusSeverityType.Error);
+                Environment.Exit(1);
             }
         }
     }

@@ -20,9 +20,11 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostDownloader.Modules.DownloadSystem;
-using HostDownloader.Modules.WindowsSystem;
-
+using HostlistDownloader.Modules.DownloadSystem;
+using HostlistDownloader.Modules.WindowsSystem;
+using System.Reflection;
+Console.WriteLine($"--HostlistDownloader-- ver:{Assembly.GetExecutingAssembly().GetName().Version} starting...");
+Directory.SetCurrentDirectory(AppContext.BaseDirectory); //Fixes issue where if the user runs the program from a different directory path in their terminal it will attempt to run with an invalid location.
 IOManager.CreateNecessaryDirectoriesAndFiles();
 TraceLogger.ClearExpiredLogs();
 HostListManager.UpdateLists();

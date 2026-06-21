@@ -20,9 +20,9 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostDownloader.Modules.DownloadSystem;
+using HostlistDownloader.Modules.DownloadSystem;
 
-namespace HostDownloader.Modules.WindowsSystem
+namespace HostlistDownloader.Modules.WindowsSystem
 {
     internal class IOManager
     {
@@ -96,6 +96,17 @@ namespace HostDownloader.Modules.WindowsSystem
         {
             try
             {
+                //Is the running environment path and the application directory path different??
+                string appDir = Path.GetFullPath(AppContext.BaseDirectory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                string currentDir = Path.GetFullPath(Environment.CurrentDirectory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (!string.Equals(appDir, currentDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    TraceLogger.Log($"HostfileDownloader must be run from the directory where it is stored. Application Path: {appDir} - Path that was passed: {currentDir}. To fix this, you must CD to the path in your terminal where HostfileDownloader is stored '{appDir}' and try again.", Enums.StatusSeverityType.Fatal);
+                }
                 bool corruptionDetected = false;
                 //Stage 1: Check blocklist and whitelist INI files for corruption (invalid entries)
                 string[] configFiles = ["hostfiles/blocklist.ini", "hostfiles/whitelist.ini"];
@@ -180,7 +191,7 @@ namespace HostDownloader.Modules.WindowsSystem
             var files = Directory.GetFiles(sourceFolder, "*.txt");
             if (files.Length == 0)
             {
-                TraceLogger.Log($"No files found to merge in {sourceFolder}", Enums.StatusSeverityType.Warning);
+                TraceLogger.Log($"No files found to merge in {sourceFolder}.", Enums.StatusSeverityType.Warning);
                 return;
             }
 
@@ -189,6 +200,11 @@ namespace HostDownloader.Modules.WindowsSystem
                 using var writer = new StreamWriter(outputFile);
                 foreach (var file in files)
                 {
+                    if (file.Contains("combined-"))
+                    {
+                        TraceLogger.Log("Combined file ignored.");
+                        return;
+                    }
                     TraceLogger.Log($"Merging file: {file}");
                     var lines = File.ReadAllLines(file);
                     foreach (var line in lines)
@@ -247,6 +263,10 @@ namespace HostDownloader.Modules.WindowsSystem
                 File.WriteAllLines(MergedFileLoc, uniqueLines);
                 TraceLogger.Log($"Removed {lines.Length - uniqueLines.Count} duplicate entries.");
                 TraceLogger.Log($"Total lines in {MergedFileLoc} after removing duplicates: {File.ReadAllLines(MergedFileLoc).Length}");
+            }
+            catch (FileNotFoundException ex1)
+            {
+                TraceLogger.Log($"{ex1.Message}. You can IGNORE this error if the file not found is for a list that you haven't configured. (e.g. if you left whitelist.ini blank and the file not found is the combined-whitelist.txt, you can ignore.).", Enums.StatusSeverityType.Error);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-﻿namespace HostDownloader.Modules
+﻿namespace HostlistDownloader.Modules
 {
     public class Enums
     {

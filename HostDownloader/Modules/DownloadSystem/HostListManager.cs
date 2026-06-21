@@ -20,14 +20,21 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostDownloader.Modules.WindowsSystem;
+using HostlistDownloader.Modules.WindowsSystem;
 
-namespace HostDownloader.Modules.DownloadSystem
+namespace HostlistDownloader.Modules.DownloadSystem
 {
     public static class HostListManager
     {
         public static void UpdateLists()
         {
+            //Is Inis blank?
+            if (String.IsNullOrEmpty(File.ReadAllText(IOManager.IniBlockListFileLocation)) &
+                String.IsNullOrEmpty(File.ReadAllText(IOManager.IniWhiteListFileLocation)))
+            {
+                TraceLogger.Log("Blocklist and Whitelist INI is not configured. Please configure HostlistDownloader.", Enums.StatusSeverityType.Fatal);
+                return;
+            }
             IOManager.ClearFiles(IOManager.BlockListFolderLocation);
             IOManager.ClearFiles(IOManager.WhiteListFolderLocation);
             TraceLogger.Log($"Downloading and updating blocklists and whitelists...", Enums.StatusSeverityType.Information);
@@ -59,12 +66,15 @@ namespace HostDownloader.Modules.DownloadSystem
             }
 
             List<string> urls = ReadUrlsFromFile(IniLocation);
+            int completeNumber = 0;
             foreach (var url in urls)
             {
-                TraceLogger.Log($"Downloading list from: {url}");
+                TraceLogger.Log($"Progress: [{completeNumber} out of {urls.Count}] - Downloading list from: {url}");
                 var fileName = Path.GetFileName(url);
                 var filePath = Path.Combine(ListFolderLocation, fileName);
                 await DownloadController.DownloadFileAsync(url, filePath).ConfigureAwait(false);
+                TraceLogger.Log($"Starting next download...");
+                completeNumber++;
             }
             TraceLogger.Log("Finished downloading lists.");
             IOManager.MergeFiles(ListFolderLocation, CombinedListLocation);
