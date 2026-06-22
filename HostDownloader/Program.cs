@@ -23,26 +23,58 @@
 using HostlistDownloader.Modules;
 using HostlistDownloader.Modules.DownloadSystem;
 using HostlistDownloader.Modules.WindowsSystem;
+using System.Diagnostics;
 using System.Reflection;
 
 Console.WriteLine($"--HostlistDownloader-- ver:{Assembly.GetExecutingAssembly().GetName().Version} starting...");
-
+Console.WriteLine("Arguments: /force < ignores etags - forces a redownload of all hostlists.");
+Stopwatch watch = Stopwatch.StartNew();
 Directory.SetCurrentDirectory(AppContext.BaseDirectory); //Fixes issue where if the user runs the program from a different directory path in their terminal it will attempt to run with an invalid location.
 IOManager.CreateNecessaryDirectoriesAndFiles();
+if (!NetworkChecker.IsNetworkAvailable())
+{
+    TraceLogger.Log("Unable to get a network connection!", Enums.StatusSeverityType.Fatal);
+}
+
+bool force = false;
+List<string> remainingArgs = new List<string>();
+
+foreach (string arg in args)
+{
+    if (arg == "/force")
+    {
+        TraceLogger.Log("/force enabled. Will ignore Etags.");
+        force = true;
+    }
+    else
+    {
+        remainingArgs.Add(arg);
+    }
+}
+
 TraceLogger.ClearExpiredLogs();
 
-HostListManager.UpdateLists(); //Main Update Loop
+HostListManager.UpdateLists(force); //Main Update Loop
 
 IOManager.ClearTempFiles(IOManager.BlockListFolderLocation);
 IOManager.ClearTempFiles(IOManager.WhiteListFolderLocation);
 
-if (!HostListManager.ProblemDuringUpdate)
+watch.Stop();
+if (!HostListManager.ProblemDuringUpdate && HostListManager.HasDownloadedUpdates)
 {
-    TraceLogger.Log("Hostfiles updated successfully!");
+    TraceLogger.Log($"(UPDATED) Hostfiles updated successfully in {watch.Elapsed.TotalSeconds} seconds.");
 }
-else
+else if (HostListManager.ProblemDuringUpdate && HostListManager.HasDownloadedUpdates)
 {
-    TraceLogger.Log("A problem was ran into when updating your hostlists. Please check the console output or log files for more information.", Enums.StatusSeverityType.Warning);
+    TraceLogger.Log($"(UPDATED WITH ISSUES) Some hostfiles have updated successfully in {watch.Elapsed.TotalSeconds} seconds. But issues were detected. Please look through the logs for more information.");
+}
+else if (!HostListManager.ProblemDuringUpdate && !HostListManager.HasDownloadedUpdates)
+{
+    TraceLogger.Log($"(UP TO DATE) Hostfiles are already up to date! (time taken: {watch.Elapsed.TotalSeconds} seconds.)");
+}
+else //Problem and no downloads
+{
+    TraceLogger.Log("(PROBLEM) A problem was ran into when updating your hostlists. Please check the console output or log files for more information.", Enums.StatusSeverityType.Warning);
 }
 
 Environment.Exit(0);

@@ -21,21 +21,22 @@
 //SOFTWARE.
 
 using HostlistDownloader.Modules.DownloadSystem;
+using System.Diagnostics;
 
 namespace HostlistDownloader.Modules.WindowsSystem
 {
     internal class IOManager
     {
         public static readonly string HostfilesLocation = "hostfiles";
-        public static readonly string BlockListFolderLocation = "hostfiles\\blocklist";
-        public static readonly string WhiteListFolderLocation = "hostfiles\\whitelist";
-        public static readonly string IniBlockListFileLocation = "hostfiles\\blocklist.ini";
-        public static readonly string IniWhiteListFileLocation = "hostfiles\\whitelist.ini";
-        public static readonly string IniUserWebsiteBlockListFileLocation = "hostfiles\\userwebsiteblocklist.ini";
-        public static readonly string IniUserWebsiteWhiteListFileLocation = "hostfiles\\userwebsitewhitelist.ini";
-        public static readonly string CombinedBlockListFileLocation = "hostfiles\\blocklist\\combined-blocklist.txt";
-        public static readonly string CombinedWhiteListFileLocation = "hostfiles\\whitelist\\combined-whitelist.txt";
-        public static readonly string IniFormatTypeLocation = "hostfiles\\formattype.ini";
+        public static readonly string BlockListFolderLocation = "hostfiles/blocklist";
+        public static readonly string WhiteListFolderLocation = "hostfiles/whitelist";
+        public static readonly string IniBlockListFileLocation = "hostfiles/blocklist.ini";
+        public static readonly string IniWhiteListFileLocation = "hostfiles/whitelist.ini";
+        public static readonly string IniUserWebsiteBlockListFileLocation = "hostfiles/userwebsiteblocklist.ini";
+        public static readonly string IniUserWebsiteWhiteListFileLocation = "hostfiles/userwebsitewhitelist.ini";
+        public static readonly string CombinedBlockListFileLocation = "hostfiles/blocklist/combined-blocklist.txt";
+        public static readonly string CombinedWhiteListFileLocation = "hostfiles/whitelist/combined-whitelist.txt";
+        public static readonly string IniFormatTypeLocation = "hostfiles/formattype.ini";
         public static readonly string LogsLocation = "logs";
 
         public static void CreateNecessaryDirectoriesAndFiles()
@@ -314,8 +315,8 @@ namespace HostlistDownloader.Modules.WindowsSystem
 
         public static void MergeFiles(string sourceFolder, string outputFile)
         {
-            var files = Directory.GetFiles(sourceFolder, "*.*"); // Fixed: was ".txt"
-            if (files.Length == 0)
+            var files = Directory.GetFiles(sourceFolder, "*.*").Where(f => !Path.GetFullPath(f).EndsWith(".etag", StringComparison.OrdinalIgnoreCase)); // Fixed: was ".txt"
+            if (!files.Any())
             {
                 TraceLogger.Log($"No files found to merge in {sourceFolder}.", Enums.StatusSeverityType.Warning);
                 return;
@@ -324,14 +325,20 @@ namespace HostlistDownloader.Modules.WindowsSystem
             try
             {
                 using var writer = new StreamWriter(outputFile);
+                Stopwatch watch = Stopwatch.StartNew();
+                ConsoleProgress.ShowOperationProgress(0, files.Count(), "Merging files");
+
+                int processedFiles = 0;
                 foreach (var file in files)
                 {
                     if (file.Contains("combined-"))
                     {
-                        TraceLogger.Log($"Combined file {file} ignored.");
-                        return;
+                        Debug.WriteLine($"Combined file {file} ignored.");
+                        continue;
                     }
+
                     TraceLogger.Log($"Merging file: {file}");
+
                     var lines = File.ReadAllLines(file);
                     foreach (var line in lines)
                     {
@@ -340,8 +347,14 @@ namespace HostlistDownloader.Modules.WindowsSystem
                             writer.WriteLine(line);
                         }
                     }
+
+                    processedFiles++;
+                    ConsoleProgress.ShowOperationProgress(processedFiles, files.Count(), "Merging files");
                 }
+
                 writer.Flush();
+                watch.Stop();
+                TraceLogger.Log($"Merge files completed in {watch.Elapsed.TotalSeconds} seconds.");
             }
             catch (UnauthorizedAccessException ex1)
             {
@@ -379,7 +392,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
             //It made sense in IOManager when I was trying to implement a ClearFiles deletion attempt system, which included Task.Wait - Since the thread would wait and cause havok.
             //I HAVE to duplicate the ClearFiles code from above plus the ONE change where it filters it based on combined. This fixes the problem.
             //I honestly don't know why and I don't even want to know. It's fixed, and I'm happy.
-            var files = Directory.GetFiles(folder, "*.*").Where(f => !Path.GetFileName(f).StartsWith("combined-", StringComparison.OrdinalIgnoreCase));
+            var files = Directory.GetFiles(folder, "*.*").Where(f => !Path.GetFileName(f).StartsWith("combined-", StringComparison.OrdinalIgnoreCase)).Where(f => !Path.GetFullPath(f).EndsWith(".etag", StringComparison.OrdinalIgnoreCase));
             foreach (var file in files)
             {
                 try
@@ -400,23 +413,30 @@ namespace HostlistDownloader.Modules.WindowsSystem
             try
             {
                 TraceLogger.Log("Removing duplicates from merge...");
-                var originalLines = File.ReadAllLines(MergedFileLoc);
 
                 if (!File.Exists(MergedFileLoc))
                 {
                     TraceLogger.Log($"File not found: {MergedFileLoc}", Enums.StatusSeverityType.Warning);
                     return;
                 }
+
+                var originalLines = File.ReadAllLines(MergedFileLoc);
+                Stopwatch watch = Stopwatch.StartNew();
                 var uniqueLines = new HashSet<string>(originalLines, StringComparer.OrdinalIgnoreCase);
                 File.WriteAllLines(MergedFileLoc, uniqueLines);
+
+                watch.Stop();
+                TraceLogger.Log($"Duplicated removed in {watch.Elapsed.TotalSeconds} seconds.");
+
                 int removedLines = originalLines.Length - uniqueLines.Count;
                 var fileInfo = new FileInfo(MergedFileLoc);
                 long originalFileSize = originalLines.Sum(line => System.Text.Encoding.UTF8.GetByteCount(line) + 2); // +2 for newline characters
                 long newSize = uniqueLines.Sum(line => System.Text.Encoding.UTF8.GetByteCount(line) + 2);
                 long sizeDifference = originalFileSize - newSize;
+
+                TraceLogger.Log($"Removed {removedLines:N0} lines ({FormatBytes(sizeDifference)} of space saved)");
                 TraceLogger.Log($"Total lines in {MergedFileLoc} before removing duplicates: {originalLines.Length:N0}");
                 TraceLogger.Log($"Total lines in {MergedFileLoc} after removing duplicates: {uniqueLines.Count:N0}");
-                TraceLogger.Log($"Removed {removedLines:N0} lines ({FormatBytes(sizeDifference)} of space saved)");
             }
             catch (FileNotFoundException ex1)
             {

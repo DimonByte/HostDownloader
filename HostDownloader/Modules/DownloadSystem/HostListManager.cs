@@ -21,13 +21,16 @@
 //SOFTWARE.
 
 using HostlistDownloader.Modules.WindowsSystem;
+using System.Diagnostics;
 
 namespace HostlistDownloader.Modules.DownloadSystem
 {
     public static class HostListManager
     {
-        public static bool ProblemDuringUpdate = false;
-        public static void UpdateLists()
+        public static bool ProblemDuringUpdate;
+        public static bool HasDownloadedUpdates;
+
+        public static void UpdateLists(bool forceMode)
         {
             TraceLogger.Log("Starting update...", Enums.StatusSeverityType.Information);
             var blockListIni = ReadConfigFile(IOManager.IniBlockListFileLocation);
@@ -42,10 +45,10 @@ namespace HostlistDownloader.Modules.DownloadSystem
             if (!string.IsNullOrEmpty(blockListIni))
             {
                 TraceLogger.Log("Blocklist INI is configured. Updating blocklists...");
-                IOManager.ClearFiles(IOManager.BlockListFolderLocation);
+                //IOManager.ClearFiles(IOManager.BlockListFolderLocation);
                 DownloadLists(IOManager.IniBlockListFileLocation,
                     IOManager.BlockListFolderLocation,
-                    IOManager.CombinedBlockListFileLocation).GetAwaiter().GetResult();
+                    IOManager.CombinedBlockListFileLocation, forceMode).GetAwaiter().GetResult();
                 MergeUserConfig(IOManager.IniUserWebsiteBlockListFileLocation,
                     IOManager.CombinedBlockListFileLocation);
             }
@@ -57,10 +60,10 @@ namespace HostlistDownloader.Modules.DownloadSystem
             if (!string.IsNullOrEmpty(whiteListIni))
             {
                 TraceLogger.Log("Whitelist INI is configured. Updating whitelists...");
-                IOManager.ClearFiles(IOManager.WhiteListFolderLocation);
+                //IOManager.ClearFiles(IOManager.WhiteListFolderLocation);
                 DownloadLists(IOManager.IniWhiteListFileLocation,
                     IOManager.WhiteListFolderLocation,
-                    IOManager.CombinedWhiteListFileLocation).GetAwaiter().GetResult();
+                    IOManager.CombinedWhiteListFileLocation, forceMode).GetAwaiter().GetResult();
                 MergeUserConfig(IOManager.IniUserWebsiteWhiteListFileLocation,
                     IOManager.CombinedWhiteListFileLocation);
             }
@@ -111,7 +114,7 @@ namespace HostlistDownloader.Modules.DownloadSystem
             }
         }
 
-        private static async Task DownloadLists(string IniLocation, string ListFolderLocation, string CombinedListLocation)
+        private static async Task DownloadLists(string IniLocation, string ListFolderLocation, string CombinedListLocation, bool forceMode)
         {
             TraceLogger.Log($"Starting download for INI {IniLocation} | ListFolderLocation: {ListFolderLocation} | CombinedListLocation: {CombinedListLocation}");
             if (!File.Exists(IniLocation))
@@ -129,17 +132,22 @@ namespace HostlistDownloader.Modules.DownloadSystem
 
             var startTime = DateTime.Now;
             int completedCount = 0;
+            Stopwatch watch = Stopwatch.StartNew();
+
+            // Use new progress bar for download operations
+            ConsoleProgress.ShowOperationProgress(0, urls.Count, "Downloading lists");
+
             foreach (var url in urls)
             {
                 completedCount++;
-                double progressPercentage = (double)completedCount / urls.Count * 100;
-                UpdateProgressBar(progressPercentage, $"{completedCount} out of {urls.Count}");
-                TraceLogger.Log($"Progress: [{completedCount} out of {urls.Count}] - Downloading list from: {url}");
+                //TraceLogger.Log($"Progress: [{completedCount} out of {urls.Count}] - Downloading list from: {url}");
                 var fileName = Path.GetFileName(url);
                 var filePath = Path.Combine(ListFolderLocation, fileName);
+
                 try
                 {
-                    DownloadController.DownloadFileAsync(url, filePath).GetAwaiter().GetResult();
+                    // Use the new download progress reporting
+                    await DownloadController.DownloadFileAsync(url, filePath, forceMode);
                 }
                 catch (Exception ex)
                 {
@@ -147,8 +155,16 @@ namespace HostlistDownloader.Modules.DownloadSystem
                     TraceLogger.Log($"Failed to download {url}: {ex}", Enums.StatusSeverityType.Error);
                     // Continue with other downloads rather than failing entire process
                 }
+                ConsoleProgress.ShowOperationProgress(completedCount, urls.Count, "Downloading lists");
             }
-            TraceLogger.Log("Downloads complete. Checking if all hostlists have been updated recently");
+
+            watch.Stop();
+            TraceLogger.Log($"Downloads complete in {watch.Elapsed.TotalSeconds} seconds. Checking if all hostlists have been updated recently");
+            if (!HasDownloadedUpdates)
+            {
+                TraceLogger.Log("No updates were applied.");
+                return;
+            }
             CheckForOldHostLists(ListFolderLocation, startTime);
             IOManager.MergeFiles(ListFolderLocation, CombinedListLocation);
             IOManager.RemoveDuplicates(CombinedListLocation);
@@ -185,27 +201,6 @@ namespace HostlistDownloader.Modules.DownloadSystem
                 ProblemDuringUpdate = true;
                 TraceLogger.Log($"Error checking old host lists: {ex}", Enums.StatusSeverityType.Error);
             }
-        }
-
-        private static void UpdateProgressBar(double percentage, string statusText)
-        {
-            int barLength = 70;
-            int progress = (int)percentage;
-
-            Console.CursorLeft = 0;
-            Console.Write("[");
-
-            for (int i = 0; i < barLength; i++)
-            {
-                if (i < barLength * percentage / 100)
-                    Console.Write("█");
-                else
-                    Console.Write("░");
-            }
-
-            Console.Write($"] {progress}% - {statusText}");
-            Console.Write(new string(' ', Console.WindowWidth - Console.CursorLeft - 1));
-            Console.WriteLine();
         }
 
         private static List<string> ReadUrlsFromFile(string filePath)
