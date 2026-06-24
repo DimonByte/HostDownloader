@@ -18,6 +18,9 @@ HostlistDownloader streamlines hostlists by automatically fetching lists from re
 | Functions | Description |
 | :--- | :--- |
 | **Remote Fetching** | Downloads raw host files directly from URLs defined in configuration INI settings. |
+| **Host File Update Check** | Checks for host file updates before downloading via eTags. |
+| **Custom User Blocklists** | Combine your user defined blocklists with the ones that are downloaded. |
+| **Formatting** | Force a specific format on all the host files downloaded. (e.g. hosts (0.0.0.0 google.com), iponly, domain) |
 | **Filtering and Removal of Duplicates**   | Automatically strips empty lines, comments (`#`, `;`), and duplicates during consolidation. |
 
 # How to configure
@@ -28,7 +31,7 @@ Define your source URLs and user-defined domains in the INI files located within
 2. Edit the `blocklist.ini` files in `hostfiles/blocklist.ini` with URL paths of the host list. (Seperated by line)
 3. Edit the `formattype.ini` file in `hostfiles/formattype.ini`. The valid settings are "hosts", "host", "domain", "iponly". (Default is domain)
 4. Ensure source domains are accessible (or use proxies configured in app settings).
-5. Run HostfileDownloader again; it will download the host lists and will create `combined-...txt` outputs automatically, with the duplicates and the comments removed.
+5. Run HostfileDownloader again; it will download the host lists and will create `HLDcombined-...txt` outputs automatically, with the duplicates and the comments removed.
 
 ### File Structure Overview
 
@@ -39,5 +42,5 @@ Define your source URLs and user-defined domains in the INI files located within
 | [`hostfiles/userwebsiteblocklist.ini`](#)| Individual domain-only blocks (e.g., `google.com` prevents website access). |
 | [`hostfiles/userwebsitewhitelist.ini`](#)| Individual domain-only allows (e.g., `google.com` allows website access). |
 | [`hostfiles/formattype.ini`](#)| Tells HostlistDownloader what format the combined list should be. The valid settings are "hosts", "host", "domain", "iponly". |
-| [`hostfiles/blocklist/combined-blocklist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
-| [`hostfiles/whitelist/combined-whitelist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
+| [`hostfiles/blocklist/HLDcombined-blocklist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
+| [`hostfiles/whitelist/HLDcombined-whitelist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
