@@ -43,7 +43,9 @@ foreach (string arg in args)
 {
     if (arg == "/force")
     {
-        TraceLogger.Log("/force enabled. Will ignore Etags.");
+        TraceLogger.Log("/force enabled. Will clear block and white list folders...");
+        IOManager.ClearTempFiles(IOManager.BlockListFolderLocation);
+        IOManager.ClearTempFiles(IOManager.WhiteListFolderLocation);
         force = true;
     }
     else
@@ -55,9 +57,6 @@ foreach (string arg in args)
 TraceLogger.ClearExpiredLogs();
 
 HostListManager.UpdateLists(force); //Main Update Loop
-
-//IOManager.ClearTempFiles(IOManager.BlockListFolderLocation); //Cant clear out hostfiles... used for etags.
-//IOManager.ClearTempFiles(IOManager.WhiteListFolderLocation);
 
 watch.Stop();
 if (!HostListManager.ProblemDuringUpdate && HostListManager.HasDownloadedUpdates)

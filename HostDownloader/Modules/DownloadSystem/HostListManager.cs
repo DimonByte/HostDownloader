@@ -136,7 +136,7 @@ namespace HostlistDownloader.Modules.DownloadSystem
             foreach (var url in urls)
             {
                 completedCount++;
-                var fileName = Path.GetFileName(url);
+                var fileName = $"{completedCount} - {Path.GetFileName(url)}";
                 var filePath = Path.Combine(ListFolderLocation, fileName);
 
                 try
@@ -171,14 +171,17 @@ namespace HostlistDownloader.Modules.DownloadSystem
             var files = Directory.GetFiles(ListFolderLocation, "*.*").Where(f => !Path.GetFullPath(f).EndsWith(".etag", StringComparison.OrdinalIgnoreCase)).Where(f => !Path.GetFullPath(f).Contains("HLDcombined-", StringComparison.OrdinalIgnoreCase));
             if (files.Count() != urlCount)
             {
-                TraceLogger.Log("URL and List file count mismatch! Clearing hostlist folder and restarting HostlistDownloader...",Enums.StatusSeverityType.Warning);
+                TraceLogger.Log("URL and List file count mismatch! Clearing hostlist folder...",Enums.StatusSeverityType.Warning);
+                TraceLogger.Log($"URL Count: {urlCount} | File Count: {files.Count()}", Enums.StatusSeverityType.Warning);
                 try
                 {
-                    foreach (var file in Directory.GetFiles(ListFolderLocation))
-                    {
-                        File.Delete(file);
-                        TraceLogger.Log($"Deleted {file} due to count mismatch.");
-                    }
+                    //foreach (var file in Directory.GetFiles(ListFolderLocation))
+                    //{
+                    //    File.Delete(file);
+                    //    TraceLogger.Log($"Deleted {file} due to count mismatch...", Enums.StatusSeverityType.Warning);
+                    //}
+                    IOManager.ClearTempFiles(ListFolderLocation);
+                    TraceLogger.Log("URL and list file count is different. Hostlist folder has been cleared. Please run HostlistDownloader again. If that doesn't work, run it with the /force argument.", Enums.StatusSeverityType.Fatal, ErrorCodes.IntegrityCheckFailure);
                 }
                 catch(Exception ex)
                 {
