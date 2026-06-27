@@ -17,7 +17,7 @@ HostlistDownloader streamlines hostlists by automatically fetching lists from re
 
 | Functions | Description |
 | :--- | :--- |
-| **Remote Fetching** | Downloads raw host files directly from URLs defined in configuration INI settings. |
+| **Remote Fetching** | Downloads raw host files directly from URLs defined in configuration JSON settings. |
 | **Host File Update Check** | Checks for host file updates before downloading via eTags. |
 | **Custom User Blocklists** | Combine your user defined blocklists with the ones that are downloaded. |
 | **Formatting** | Force a specific format on all the host files downloaded. (e.g. hosts (0.0.0.0 google.com), iponly, domain) |
@@ -27,21 +27,35 @@ HostlistDownloader streamlines hostlists by automatically fetching lists from re
 
 Define your source URLs and user-defined domains in the INI files located within `hostfiles/`. This configuration system provides clear separation between blocklists, whitelists, and raw downloads.
 
-1. Run HostfileDownloader. It will create the blank configuration files for you.
-2. Edit the `blocklist.ini` files in `hostfiles/blocklist.ini` with URL paths of the host list. (Seperated by line)
-3. Edit the `formattype.ini` file in `hostfiles/formattype.ini`. The valid settings are "hosts", "host", "domain", "iponly". (Default is domain)
+1. Run HostlistDownloader. It will create a default `settings.json` for you.
+2. Edit the `settings.json` with your desired URL paths of the host lists (separated by line).
+3. Optionally adjust other settings such as format type, maximum download threads, or log expiry.
 4. Ensure source domains are accessible (or use proxies configured in app settings).
-5. Run HostfileDownloader again; it will download the host lists and will create `HLDcombined-...txt` outputs automatically, with the duplicates and the comments removed.
+5. Run HostlistDownloader again; it will download the host lists and create `HLDcombined-...txt` outputs automatically, with duplicates and comments removed.
 
 ### File Structure Overview
 
 | Path / Filename | Functionality |
 | :--- | :--- |
-| [`hostfiles/blocklist.ini`](#) | Contains URLs to remote hostfile lists for blocking (downloaded by line). |
-| [`hostfiles/whitelist.ini`](#)  | Contains URLs to remote whitelists. |
-| [`hostfiles/userwebsiteblocklist.ini`](#)| Individual domain-only blocks (e.g., `google.com` prevents website access). |
-| [`hostfiles/userwebsitewhitelist.ini`](#)| Individual domain-only allows (e.g., `google.com` allows website access). |
-| [`hostfiles/formattype.ini`](#)| Tells HostlistDownloader what format the combined list should be. The valid settings are "hosts", "host", "domain", "iponly". |
+| [`settings.json`](#) | Contains all configuration including URLs to remote hostfile lists for blocking/whitelisting. |
 | [`hostfiles/blocklist/HLDcombined-blocklist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
-| [`hostfiles/whitelist/HLDcombined-whitelist.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs processed and merged locally. |
-| [`hostfiles/combined/HLDcombined-list.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs, with blocklist URLs that are in the whitelist removed. (Good for Portmasters "Custom Filter File" that doesn't have a whitelist filter file option) |
+| [`hostfiles/whitelist/HLDcombined-whitelist.txt`](#)     | **Output**: Consolidated list containing all whitelist URLs processed and merged locally. |
+| [`hostfiles/combined/HLDcombined-list.txt`](#)     | **Output**: Consolidated list containing all blocklist URLs, with blocklist entries that are in the whitelist removed. (Good for Portmasters "Custom Filter File" that doesn't have a whitelist filter file option) |
+
+### Example `config.json`
+
+```json
+{
+  "blocklists": [
+    "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/wildcard/ultimate-onlydomains.txt",
+    "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+    "https://someonewhocares.org/hosts/zero/hosts",
+  ],
+  "whitelist": [],
+  "formattype": "domain",
+  "userWebsiteBlocklist": [],
+  "userWebsiteWhitelist": [],
+  "maxDownloadThreads": 3,
+  "logExpiryInDays": 7
+}
+```
