@@ -26,7 +26,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using static HostlistDownloader.Modules.Enums;
 
-namespace HostlistDownloader.Modules.DownloadSystem
+namespace HostlistDownloader.Modules.Helpers
 {
     public static class TraceLogger
     {
@@ -102,7 +102,42 @@ namespace HostlistDownloader.Modules.DownloadSystem
             {
                 Debug.WriteLine($"Failed to prepare log entry: {ex}");
             }
-            Console.WriteLine(logEntry);
+
+            // Apply color coding based on severity
+            ConsoleColor originalForeground = Console.ForegroundColor;
+            ConsoleColor originalBackground = Console.BackgroundColor;
+
+            try
+            {
+                switch (severity)
+                {
+                    case StatusSeverityType.Information:
+                        Console.ForegroundColor = ConsoleColor.White;
+                        break;
+                    case StatusSeverityType.Warning:
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        break;
+                    case StatusSeverityType.Error:
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        break;
+                    case StatusSeverityType.Fatal:
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.BackgroundColor = ConsoleColor.Red;
+                        break;
+                    default:
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        break;
+                }
+
+                Console.WriteLine(logEntry);
+            }
+            finally
+            {
+                // Reset console colors to original values
+                Console.ForegroundColor = originalForeground;
+                Console.BackgroundColor = originalBackground;
+            }
+
             lock (_lock)
             {
                 try

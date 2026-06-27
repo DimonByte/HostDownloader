@@ -20,8 +20,9 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
-using HostlistDownloader.Modules.DownloadSystem;
+using HostlistDownloader.Modules.Helpers;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace HostlistDownloader.Modules.WindowsSystem
 {
@@ -31,20 +32,22 @@ namespace HostlistDownloader.Modules.WindowsSystem
         public static readonly string BlockListFolderLocation = "hostfiles/blocklist";
         public static readonly string WhiteListFolderLocation = "hostfiles/whitelist";
         public static readonly string CombinedListFolderLocation = "hostfiles/combined";
-        public static readonly string IniBlockListFileLocation = "hostfiles/blocklist.ini";
-        public static readonly string IniWhiteListFileLocation = "hostfiles/whitelist.ini";
-        public static readonly string IniUserWebsiteBlockListFileLocation = "hostfiles/userwebsiteblocklist.ini";
-        public static readonly string IniUserWebsiteWhiteListFileLocation = "hostfiles/userwebsitewhitelist.ini";
+        //public static readonly string IniBlockListFileLocation = "hostfiles/blocklist.ini";
+        //public static readonly string IniWhiteListFileLocation = "hostfiles/whitelist.ini";
+        //public static readonly string IniUserWebsiteBlockListFileLocation = "hostfiles/userwebsiteblocklist.ini";
+        //public static readonly string IniUserWebsiteWhiteListFileLocation = "hostfiles/userwebsitewhitelist.ini";
         public static readonly string CombinedBlockListFileLocation = "hostfiles/blocklist/HLDcombined-blocklist.txt";
         public static readonly string CombinedWhiteListFileLocation = "hostfiles/whitelist/HLDcombined-whitelist.txt";
         public static readonly string CombinedListFileLocation = "hostfiles/combined/HLDcombined-list.txt";
-        public static readonly string IniFormatTypeLocation = "hostfiles/formattype.ini";
+        //public static readonly string IniFormatTypeLocation = "hostfiles/formattype.ini";
         public static readonly string LogsLocation = "logs";
+        public static readonly string SettingJsonFileLocation = "settings.json";
+        public static bool checkForCorruption = false;
 
         public static void CreateNecessaryDirectoriesAndFiles()
         {
             string[] directories = [LogsLocation, HostfilesLocation, BlockListFolderLocation, WhiteListFolderLocation, CombinedListFolderLocation];
-            bool checkForCorruption = false;
+
             bool ShowHelp = false;
             foreach (string dir in directories)
             {
@@ -62,7 +65,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
                     }
                 }
             }
-            string[] files = [CombinedListFileLocation,IniFormatTypeLocation, IniUserWebsiteBlockListFileLocation, IniUserWebsiteWhiteListFileLocation, CombinedBlockListFileLocation, CombinedWhiteListFileLocation, IniBlockListFileLocation, IniWhiteListFileLocation];
+            string[] files = [CombinedListFileLocation, CombinedBlockListFileLocation, CombinedWhiteListFileLocation];
             foreach (string file in files)
             {
                 if (!File.Exists(file))
@@ -86,14 +89,19 @@ namespace HostlistDownloader.Modules.WindowsSystem
                     checkForCorruption = true;
                 }
             }
+            if (!File.Exists(IOManager.SettingJsonFileLocation))
+            {
+                ShowHelp = true;
+                ConfigReader.CreateDefaultConfig(IOManager.SettingJsonFileLocation);
+            }
+            else
+            {
+                checkForCorruption = true;
+            }
             if (ShowHelp)
             {
-                Console.WriteLine("[!] Configuration files and folders have been created in the directory where this program is stored.\nPlease refer to the documentation on the main GitHub page of HostlistDownloader to configure. Once configured, run HostlistDownloader again. HostlistDownloader will now exit.");
+                Console.WriteLine("[!] Configuration files and folders have been created in the directory where this program is stored. (settings.json)\nPlease refer to the documentation on the main GitHub page of HostlistDownloader to configure. Once configured, run HostlistDownloader again. HostlistDownloader will now exit.");
                 Environment.Exit(0);
-            }
-            if (checkForCorruption)
-            {
-                CheckForInvalidConfig();
             }
         }
 
@@ -101,7 +109,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
         {
             try
             {
-                //Is the running environment path and the application directory path different??
+                // Is the running environment path and the application directory path different??
                 string appDir = Path.GetFullPath(AppContext.BaseDirectory)
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
@@ -112,69 +120,109 @@ namespace HostlistDownloader.Modules.WindowsSystem
                 {
                     TraceLogger.Log($"HostfileDownloader must be run from the directory where it is stored.\nApplication Path: {appDir} - Path that was passed: {currentDir}. To fix this, you must CD to the path in your terminal where HostfileDownloader is stored '{appDir}' and try again.", Enums.StatusSeverityType.Fatal, ErrorCodes.WrongExecutionDirectory);
                 }
+
                 bool corruptionDetected = false;
-                //Stage 1: Check blocklist and whitelist INI files for corruption (invalid entries)
-                string[] configFiles = [IniBlockListFileLocation, IniWhiteListFileLocation];
-                foreach (string configFile in configFiles)
+
+                // Stage 1: Check blocklist and whitelist configuration values for corruption (invalid URLs)
+                var blocklists = ConfigReader.Instance.Blocklists;
+                var whitelists = ConfigReader.Instance.Whitelist;
+
+                TraceLogger.Log("Checking blocklist configuration for corruption.");
+                var validBlocklistUrls = new List<string>();
+                foreach (var url in blocklists)
                 {
-                    if (File.Exists(configFile))
+                    if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
                     {
-                        var lines = File.ReadAllLines(configFile);
-                        TraceLogger.Log($"Checking {configFile} for corruption. Total lines: {lines.Length}");
-                        var validLines = new List<string>();
-                        foreach (var line in lines)
-                        {
-                            if (Uri.IsWellFormedUriString(line, UriKind.Absolute))
-                            {
-                                validLines.Add(line);
-                            }
-                            else
-                            {
-                                corruptionDetected = true;
-                                TraceLogger.Log($"Corruption detected: Removed invalid line from {configFile}: {line}", Enums.StatusSeverityType.Warning);
-                            }
-                        }
-                        File.WriteAllLines(configFile, validLines);
-                        TraceLogger.Log($"Checked {configFile} for corruption. Valid lines retained: {validLines.Count}");
+                        validBlocklistUrls.Add(url);
                     }
                     else
                     {
-                        TraceLogger.Log($"Critical configuration file missing: {configFile}. HostDirectory cannot continue without this file. Please ensure the file exists and is accessible.", Enums.StatusSeverityType.Fatal, ErrorCodes.ConfigurationFileMissing);
+                        corruptionDetected = true;
+                        TraceLogger.Log($"Corruption detected: Removed invalid blocklist URL: {url}", Enums.StatusSeverityType.Warning);
                     }
                 }
-                //Stage 2: Check user blocklist and whitelist INI files for corruption (invalid entries), they should only contain domain names, not full URLs. So google.com is valid, but http://google.com is not.
-                string[] userConfigFiles = [IniUserWebsiteBlockListFileLocation, IniUserWebsiteWhiteListFileLocation];
-                foreach (string userConfigFile in userConfigFiles)
+
+                TraceLogger.Log("Checking whitelist configuration for corruption.");
+                var validWhitelistUrls = new List<string>();
+                foreach (var url in whitelists)
                 {
-                    if (File.Exists(userConfigFile))
+                    if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
                     {
-                        var lines = File.ReadAllLines(userConfigFile);
-                        TraceLogger.Log($"Checking {userConfigFile} for corruption. Total lines: {lines.Length}");
-                        var validLines = new List<string>();
-                        foreach (var line in lines)
-                        {
-                            if (Uri.CheckHostName(line) != UriHostNameType.Unknown)
-                            {
-                                validLines.Add(line);
-                            }
-                            else
-                            {
-                                corruptionDetected |= true;
-                                TraceLogger.Log($"Corruption detected: Removed corrupt line from {userConfigFile}: {line}", Enums.StatusSeverityType.Warning);
-                            }
-                        }
-                        File.WriteAllLines(userConfigFile, validLines);
-                        TraceLogger.Log($"Checked {userConfigFile} for corruption. Valid lines retained: {validLines.Count}");
+                        validWhitelistUrls.Add(url);
                     }
                     else
                     {
-                        TraceLogger.Log($"Critical configuration file missing: {userConfigFile}. HostlistDownloader cannot continue without this file. Please ensure the file exists and is accessible.", Enums.StatusSeverityType.Fatal, ErrorCodes.ConfigurationFileMissing);
+                        corruptionDetected = true;
+                        TraceLogger.Log($"Corruption detected: Removed invalid whitelist URL: {url}", Enums.StatusSeverityType.Warning);
                     }
                 }
+
+                // Stage 2: Check user blocklist and whitelist configuration values for corruption (should contain domain names)
+                var userBlocklists = ConfigReader.Instance.UserWebsiteBlocklist;
+                var userWhitelists = ConfigReader.Instance.UserWebsiteWhitelist;
+
+                TraceLogger.Log("Checking user blocklist configuration for corruption.");
+                var validUserBlocklistDomains = new List<string>();
+                foreach (var domain in userBlocklists)
+                {
+                    // Validate that this is a valid domain name
+                    if (Uri.IsWellFormedUriString(domain, UriKind.Absolute))
+                    {
+                        validUserBlocklistDomains.Add(domain);
+                    }
+                    else
+                    {
+                        corruptionDetected = true;
+                        TraceLogger.Log($"Corruption detected: Removed invalid user blocklist domain: {domain}", Enums.StatusSeverityType.Warning);
+                    }
+                }
+
+                TraceLogger.Log("Checking user whitelist configuration for corruption.");
+                var validUserWhitelistDomains = new List<string>();
+                foreach (var domain in userWhitelists)
+                {
+                    // Validate that this is a valid domain name
+                    if (Uri.IsWellFormedUriString(domain, UriKind.Absolute))
+                    {
+                        validUserWhitelistDomains.Add(domain);
+                    }
+                    else
+                    {
+                        corruptionDetected = true;
+                        TraceLogger.Log($"Corruption detected: Removed invalid user whitelist domain: {domain}", Enums.StatusSeverityType.Warning);
+                    }
+                }
+
+                // Rebuild config file with valid entries if corruption was found
+                if (corruptionDetected)
+                {
+                    var newConfig = new Settings
+                    {
+                        Blocklists = [.. validBlocklistUrls],
+                        Whitelist = [.. validWhitelistUrls],
+                        Formattype = ConfigReader.Instance.Formattype,
+                        UserWebsiteBlocklist = [.. validUserBlocklistDomains],
+                        UserWebsiteWhitelist = [.. validUserWhitelistDomains],
+                        MaxDownloadThreads = ConfigReader.Instance.MaxDownloadThreads,
+                        LogExpiryInDays = ConfigReader.Instance.LogExpiryInDays
+                    };
+
+                    var options = new JsonSerializerOptions
+                    {
+                        WriteIndented = true,
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    };
+
+                    // Fix: Use the context-aware serialization instead of generic overload
+                    string json = JsonSerializer.Serialize(newConfig, SettingsJsonSerializerContext.Default.Settings);
+                    File.WriteAllText(SettingJsonFileLocation, json);
+                    TraceLogger.Log("Configuration file has been updated with only valid entries.", Enums.StatusSeverityType.Information);
+                }
+
                 TraceLogger.Log("Configuration corruption check completed.");
                 if (corruptionDetected)
                 {
-                    TraceLogger.Log("Corruption was detected during startup and was removed from the affected configuration files. Please review the logs for details.", Enums.StatusSeverityType.Warning);
+                    TraceLogger.Log("Corruption was detected during startup and was removed from the affected configuration entries. Please review the logs for details.", Enums.StatusSeverityType.Warning);
                 }
             }
             catch (Exception ex)
@@ -194,7 +242,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
         public static void FormatHosts(string combinedFileLocation)
         {
             TraceLogger.Log($"Attempting to format Hostfile: {combinedFileLocation}");
-            string formatTypePath = IniFormatTypeLocation;
+            string formatTypePath = ConfigReader.Instance.Formattype;
             string formatType = "domain"; // default format type
             if (File.Exists(formatTypePath))
             {

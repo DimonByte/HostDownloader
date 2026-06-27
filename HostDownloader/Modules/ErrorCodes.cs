@@ -15,12 +15,14 @@ namespace HostlistDownloader.Modules
         // Configuration errors
         public const int ConfigurationFileMissing = 20;
         public const int ConfigurationCorrupted = 21;
-        public const int InvalidConfigEntry = 22;
+        public const int InvalidConfigEntry = 22; //Configuration file is present, but the attempt to use configuration failed.
 
         // Update process errors
-        public const int UpdateProcessError = 40;
-        public const int PartialUpdateWithIssues = 41;
-        public const int IntegrityCheckFailure = 42;
+        public const int UpdateProcessError = 40; //Hostfiles update failed outright.
+        public const int PartialUpdateWithIssues = 41; //Hostfiles updates partially but some might've timed out.
+        // Internal failures
+        public const int IntegrityCheckFailure = 42; //Thrown when an operation output is checked and the output differs from what we expect.
+        public const int TaskThreadTimeout = 43;
         // Environment errors
         public const int WrongExecutionDirectory = 50;
 
@@ -38,6 +40,7 @@ namespace HostlistDownloader.Modules
                 UpdateProcessError => "Error during update process",
                 PartialUpdateWithIssues => "Update completed with issues",
                 WrongExecutionDirectory => "Program executed from incorrect directory",
+                TaskThreadTimeout => "A multi-threaded task has reached a timeout threshold",
                 IntegrityCheckFailure => "Data validation check failed",
                 _ => "Unknown error occurred"
             };

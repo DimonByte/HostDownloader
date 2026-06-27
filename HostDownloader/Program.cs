@@ -22,31 +22,38 @@
 
 using HostlistDownloader.Modules;
 using HostlistDownloader.Modules.DownloadSystem;
+using HostlistDownloader.Modules.Helpers;
 using HostlistDownloader.Modules.WindowsSystem;
 using System.Diagnostics;
 using System.Reflection;
 
 Console.WriteLine($"--HostlistDownloader-- ver:{Assembly.GetExecutingAssembly().GetName().Version} starting...");
-Console.WriteLine("Arguments: /force < ignores etags - forces a redownload of all hostlists.");
+Console.WriteLine("Arguments: /fresh (/fr) < ignores etags - forces a redownload of all hostlists.");
 Stopwatch watch = Stopwatch.StartNew();
 Directory.SetCurrentDirectory(AppContext.BaseDirectory); //Fixes issue where if the user runs the program from a different directory path in their terminal it will attempt to run with an invalid location.
 IOManager.CreateNecessaryDirectoriesAndFiles();
+ConfigReader.Init(IOManager.SettingJsonFileLocation);
+if (IOManager.checkForCorruption)
+{
+    IOManager.CheckForInvalidConfig();
+}
 if (!NetworkChecker.IsNetworkAvailable())
 {
     TraceLogger.Log("Unable to get a network connection!", Enums.StatusSeverityType.Fatal, ErrorCodes.NetworkConnectionFailed);
 }
 
-bool force = false;
+bool fresh = false;
 List<string> remainingArgs = [];
 
 foreach (string arg in args)
 {
-    if (arg == "/force")
+    if (arg == "/fresh" || arg == "/fr")
     {
-        TraceLogger.Log("/force enabled. Will clear block and white list folders...");
+        TraceLogger.Log("/fresh enabled. Clearing block and white list folders...");
         IOManager.ClearTempFiles(IOManager.BlockListFolderLocation);
         IOManager.ClearTempFiles(IOManager.WhiteListFolderLocation);
-        force = true;
+        IOManager.ClearTempFiles(IOManager.CombinedListFolderLocation);
+        fresh = true;
     }
     else
     {
@@ -56,7 +63,7 @@ foreach (string arg in args)
 
 TraceLogger.ClearExpiredLogs();
 
-HostListManager.UpdateLists(force); //Main Update Loop
+HostListManager.UpdateLists(fresh); //Main Update Loop
 
 watch.Stop();
 if (!HostListManager.ProblemDuringUpdate && HostListManager.HasDownloadedUpdates)
@@ -77,3 +84,5 @@ else //Problem and no downloads
     TraceLogger.Log("(PROBLEM) A problem was ran into when updating your hostlists. Please check the console output or log files for more information.", Enums.StatusSeverityType.Warning);
     Environment.ExitCode = ErrorCodes.UpdateProcessError;
 }
+Console.BackgroundColor = ConsoleColor.Black;
+Console.ForegroundColor = ConsoleColor.White;

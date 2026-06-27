@@ -20,6 +20,7 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 //SOFTWARE.
 
+using HostlistDownloader.Modules.Helpers;
 using System.IO.Compression;
 using System.Net.Http.Headers;
 
@@ -42,21 +43,22 @@ namespace HostlistDownloader.Modules.DownloadSystem
 
         public static async Task<bool> DownloadFileAsync(string url, string localPath, bool forceMode, CancellationToken cancellationToken = default)
         {
-            TraceLogger.Log($"Checking {url}...");
+            string WorkingOnName = Path.GetFileName(url);
+            TraceLogger.Log($"{WorkingOnName} | Checking {url}...");
             if (string.IsNullOrEmpty(url))
             {
-                TraceLogger.Log("URL is null or empty", Enums.StatusSeverityType.Error);
+                TraceLogger.Log($"{WorkingOnName} | URL is null or empty", Enums.StatusSeverityType.Error);
                 return false;
             }
             if (string.IsNullOrEmpty(localPath))
             {
-                TraceLogger.Log("Local path is null or empty", Enums.StatusSeverityType.Error);
+                TraceLogger.Log($"{WorkingOnName} | Local path is null or empty", Enums.StatusSeverityType.Error);
                 return false;
             }
             string metadataPath1 = localPath + ".etag";
             if (File.Exists(metadataPath1))
             {
-                TraceLogger.Log("ETag exists, checking online version...");
+                TraceLogger.Log($"{WorkingOnName} | ETag exists, checking online version...");
                 try
                 {
                     using var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
@@ -71,23 +73,23 @@ namespace HostlistDownloader.Modules.DownloadSystem
                         {
                             if (!File.Exists(localPath)) //Check if host file doesn't exist, but etag does.
                             {
-                                TraceLogger.Log("ETag exists but the host file is missing. proceeding with download.");
+                                TraceLogger.Log($"{WorkingOnName} | ETag exists but the host file is missing. proceeding with download.");
                             }
                             else
                             {
-                                TraceLogger.Log("ETag matches - file is already up to date. Skipping download.");
+                                TraceLogger.Log($"{WorkingOnName} | ETag matches - file is already up to date. Skipping download.");
                                 return true;
                             }
                         }
                         else
                         {
-                            TraceLogger.Log("ETag differs or missing, will proceed with download.");
+                            TraceLogger.Log($"{WorkingOnName} | ETag differs or missing, will proceed with download.");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    TraceLogger.Log($"Error checking online ETag, will proceed with download: {ex.Message}", Enums.StatusSeverityType.Warning);
+                    TraceLogger.Log($"{WorkingOnName} | Error checking online ETag, will proceed with download: {ex.Message}", Enums.StatusSeverityType.Warning);
                 }
             }
 
@@ -95,12 +97,12 @@ namespace HostlistDownloader.Modules.DownloadSystem
             {
                 try
                 {
-                    TraceLogger.Log($"Downloading from {url} to {localPath} (Attempt {attempt}/{MaxRetries})...");
+                    TraceLogger.Log($"{WorkingOnName} | Downloading to {localPath} (Attempt {attempt}/{MaxRetries})...");
                     string? directory = Path.GetDirectoryName(localPath);
                     if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
                     {
                         Directory.CreateDirectory(directory);
-                        TraceLogger.Log($"Directory created: {directory}");
+                        TraceLogger.Log($"{WorkingOnName} | Directory created: {directory}");
                     }
 
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -109,19 +111,19 @@ namespace HostlistDownloader.Modules.DownloadSystem
 
                     if (response.IsSuccessStatusCode)
                     {
-                        TraceLogger.Log($"HTTP response received with status code: {response.StatusCode}");
+                        TraceLogger.Log($"{WorkingOnName} | HTTP response received with status code: {response.StatusCode}");
                         long? contentLength = response.Content.Headers.ContentLength;
                         byte[] contentBytes = await response.Content.ReadAsByteArrayAsync(cts.Token).ConfigureAwait(false);
                         bool isGzipped = response.Content.Headers.ContentEncoding?.Any(e => e.Contains("gzip")) ?? false;
                         using var fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous);
                         if (isGzipped)
                         {
-                            TraceLogger.Log("Decompressing GZip...");
+                            TraceLogger.Log($"{WorkingOnName} | Decompressing GZip...");
                             using var compressedStream = new MemoryStream(contentBytes);
                             using var decompressedStream = new GZipStream(compressedStream, CompressionMode.Decompress);
                             if (contentLength.HasValue)
                             {
-                                TraceLogger.Log($"Decompressing {contentLength.Value} bytes of GZip data...");
+                                TraceLogger.Log($"{WorkingOnName} | Decompressing {contentLength.Value} bytes of GZip data...");
                             }
                             await decompressedStream.CopyToAsync(fileStream, cts.Token).ConfigureAwait(false);
                         }
@@ -130,7 +132,7 @@ namespace HostlistDownloader.Modules.DownloadSystem
                             TraceLogger.Log($"Content is not gzipped, writing directly to file...");
                             if (contentLength.HasValue)
                             {
-                                TraceLogger.Log($"Writing {contentLength.Value:N0} bytes to file...");
+                                TraceLogger.Log($"{WorkingOnName} | Writing {contentLength.Value:N0} bytes to file...");
                             }
 
                             await fileStream.WriteAsync(contentBytes.AsMemory(0, contentBytes.Length), cts.Token).ConfigureAwait(false);
@@ -139,65 +141,65 @@ namespace HostlistDownloader.Modules.DownloadSystem
                         {
                             string metadataPath = localPath + ".etag";
                             await File.WriteAllTextAsync(metadataPath, response.Headers.ETag.Tag, cancellationToken).ConfigureAwait(false);
-                            TraceLogger.Log($"ETag stored with file: {response.Headers.ETag.Tag}");
+                            TraceLogger.Log($"{WorkingOnName} | ETag stored with file: {response.Headers.ETag.Tag}");
                         }
                         HostListManager.HasDownloadedUpdates = true;
-                        TraceLogger.Log("Download completed successfully.");
+                        TraceLogger.Log($"{WorkingOnName} | Download completed successfully.");
                         return true;
                     }
                     else
                     {
                         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                         {
-                            TraceLogger.Log($"Download failed with status code: {response.StatusCode} (File not found, not retrying)", Enums.StatusSeverityType.Error);
+                            TraceLogger.Log($"{WorkingOnName} | Download failed with status code: {response.StatusCode} (File not found, not retrying)", Enums.StatusSeverityType.Error);
                             return false;
                         }
-                        TraceLogger.Log($"Download attempt {attempt} failed with status code: {response.StatusCode}", Enums.StatusSeverityType.Warning);
+                        TraceLogger.Log($"{WorkingOnName} | Download attempt {attempt} failed with status code: {response.StatusCode}", Enums.StatusSeverityType.Warning);
                         if (attempt < MaxRetries)
                         {
-                            TraceLogger.Log($"Waiting {RetryDelay.TotalSeconds} seconds before retry...");
+                            TraceLogger.Log($"{WorkingOnName} | Waiting {RetryDelay.TotalSeconds} seconds before retry...");
                             await Task.Delay(RetryDelay, cancellationToken).ConfigureAwait(false);
                         }
                     }
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    TraceLogger.Log("Download was cancelled by user", Enums.StatusSeverityType.Warning);
+                    TraceLogger.Log($"{WorkingOnName} | Download was cancelled by user", Enums.StatusSeverityType.Warning);
                     return false;
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
-                    TraceLogger.Log($"Download timed out on attempt {attempt}", Enums.StatusSeverityType.Error);
+                    TraceLogger.Log($"{WorkingOnName} | Download timed out on attempt {attempt}", Enums.StatusSeverityType.Error);
                     if (attempt < MaxRetries)
                     {
-                        TraceLogger.Log($"Waiting {RetryDelay.TotalSeconds} seconds before retry...");
+                        TraceLogger.Log($"{WorkingOnName} | Waiting {RetryDelay.TotalSeconds} seconds before retry...");
                         await Task.Delay(RetryDelay, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 catch (HttpRequestException hre) when (attempt < MaxRetries)
                 {
-                    TraceLogger.Log($"Network error on attempt {attempt}: {hre.Message}", Enums.StatusSeverityType.Warning);
+                    TraceLogger.Log($"{WorkingOnName} | Network error on attempt {attempt}: {hre.Message}", Enums.StatusSeverityType.Warning);
 
                     if (attempt < MaxRetries)
                     {
-                        TraceLogger.Log($"Waiting {RetryDelay.TotalSeconds} seconds before retry...");
+                        TraceLogger.Log($"{WorkingOnName} | Waiting {RetryDelay.TotalSeconds} seconds before retry...");
                         await Task.Delay(RetryDelay, cancellationToken).ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
                 {
-                    TraceLogger.Log($"Error downloading file on attempt {attempt}: {ex.Message}", Enums.StatusSeverityType.Error);
-                    TraceLogger.Log($"Exception details: {ex}", Enums.StatusSeverityType.Error);
+                    TraceLogger.Log($"{WorkingOnName} | Error downloading file on attempt {attempt}: {ex.Message}", Enums.StatusSeverityType.Error);
+                    TraceLogger.Log($"{WorkingOnName} | Exception details: {ex}", Enums.StatusSeverityType.Error);
 
                     // If this isn't the last attempt, wait before retrying
                     if (attempt < MaxRetries)
                     {
-                        TraceLogger.Log($"Waiting {RetryDelay.TotalSeconds} seconds before retry...");
+                        TraceLogger.Log($"{WorkingOnName} | Waiting {RetryDelay.TotalSeconds} seconds before retry...");
                         await Task.Delay(RetryDelay, cancellationToken).ConfigureAwait(false);
                     }
                 }
             }
-            TraceLogger.Log($"Download failed after {MaxRetries} attempts", Enums.StatusSeverityType.Error);
+            TraceLogger.Log($"{WorkingOnName} | Download failed after {MaxRetries} attempts", Enums.StatusSeverityType.Error);
             return false;
         }
     }
