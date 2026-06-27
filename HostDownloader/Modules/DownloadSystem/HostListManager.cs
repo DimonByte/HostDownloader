@@ -30,6 +30,10 @@ namespace HostlistDownloader.Modules.DownloadSystem
         public static bool ProblemDuringUpdate;
         public static bool HasDownloadedUpdates;
 
+        // Cache to avoid repeated file access
+        private static readonly Dictionary<string, HashSet<string>> _fileLineCache = [];
+        private static readonly Lock _cacheLock = new();
+
         public static void UpdateLists(bool forceMode)
         {
             TraceLogger.Log("Starting update...", Enums.StatusSeverityType.Information);
@@ -49,7 +53,6 @@ namespace HostlistDownloader.Modules.DownloadSystem
             if (!string.IsNullOrEmpty(blockListIni))
             {
                 TraceLogger.Log("Blocklist INI is configured. Updating blocklists...");
-                //IOManager.ClearFiles(IOManager.BlockListFolderLocation);
                 DownloadLists(IOManager.IniBlockListFileLocation,
                     IOManager.BlockListFolderLocation,
                     IOManager.CombinedBlockListFileLocation, forceMode).GetAwaiter().GetResult();
@@ -74,7 +77,6 @@ namespace HostlistDownloader.Modules.DownloadSystem
             if (!string.IsNullOrEmpty(whiteListIni))
             {
                 TraceLogger.Log("Whitelist INI is configured. Updating whitelists...");
-                //IOManager.ClearFiles(IOManager.WhiteListFolderLocation);
                 DownloadLists(IOManager.IniWhiteListFileLocation,
                     IOManager.WhiteListFolderLocation,
                     IOManager.CombinedWhiteListFileLocation, forceMode).GetAwaiter().GetResult();
@@ -132,25 +134,17 @@ namespace HostlistDownloader.Modules.DownloadSystem
                     return;
                 }
 
-                var existingLines = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (File.Exists(CombinedLocation))
-                {
-                    var existingContent = File.ReadAllLines(CombinedLocation);
-                    foreach (var line in existingContent)
-                    {
-                        if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
-                        {
-                            existingLines.Add(line.Trim());
-                        }
-                    }
-                }
+                // Get existing lines from combined list for uniqueness check
+                var existingLines = ReadLinesFromFileCached(CombinedLocation);
+
+                // Process user lines and add unique ones to the combined list
                 var userLines = File.ReadAllLines(IniUserListLocation);
                 var filteredLines = new List<string>();
 
                 foreach (var line in userLines)
                 {
                     var trimmedLine = line.Trim();
-                    if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith("#"))
+                    if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith('#'))
                         continue;
                     if (!existingLines.Contains(trimmedLine))
                     {
@@ -158,7 +152,8 @@ namespace HostlistDownloader.Modules.DownloadSystem
                         existingLines.Add(trimmedLine); // Add to existing set for subsequent checks in this method
                     }
                 }
-                if (filteredLines.Any())
+
+                if (filteredLines.Count != 0)
                 {
                     File.AppendAllLines(CombinedLocation, filteredLines);
                     TraceLogger.Log($"Merged user defined lists on {CombinedLocation} (added {filteredLines.Count} unique entries)");
@@ -278,7 +273,8 @@ namespace HostlistDownloader.Modules.DownloadSystem
             TraceLogger.Log("Generating combined list...");
             try
             {
-                var whiteList = new HashSet<string>(ReadLinesFromFile(IOManager.CombinedWhiteListFileLocation), StringComparer.OrdinalIgnoreCase);
+                // Use cached version for the white list to avoid repeated file reads
+                var whiteList = ReadLinesFromFileCached(IOManager.CombinedWhiteListFileLocation);
                 var blockListLines = ReadLinesFromFile(IOManager.CombinedBlockListFileLocation);
                 var filteredLines = blockListLines.Where(line =>
                 !whiteList.Any(whiteItem => line.Contains(whiteItem, StringComparison.OrdinalIgnoreCase))).ToList();
@@ -299,6 +295,26 @@ namespace HostlistDownloader.Modules.DownloadSystem
             return File.ReadLines(filePath)
                       .Select(line => line.Trim())
                       .Where(line => !string.IsNullOrEmpty(line));
+        }
+
+        private static HashSet<string> ReadLinesFromFileCached(string filePath)
+        {
+            if (!File.Exists(filePath))
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            lock (_cacheLock)
+            {
+                // Check if we already have this file in cache
+                if (_fileLineCache.TryGetValue(filePath, out var cachedLines))
+                {
+                    return cachedLines;
+                }
+
+                // Load the lines and add to cache
+                var lines = new HashSet<string>(ReadLinesFromFile(filePath), StringComparer.OrdinalIgnoreCase);
+                _fileLineCache[filePath] = lines;
+                return lines;
+            }
         }
 
         private static List<string> ReadUrlsFromFile(string filePath)

@@ -225,7 +225,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
 
             foreach (var line in originalLines)
             {
-                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
                     continue;
 
                 var trimmedLine = line.Trim();
@@ -234,7 +234,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
                 int commentIndex = trimmedLine.IndexOf('#');
                 if (commentIndex >= 0)
                 {
-                    trimmedLine = trimmedLine.Substring(0, commentIndex).Trim();
+                    trimmedLine = trimmedLine[..commentIndex].Trim();
                 }
 
                 // Check if it's in host format: "IP domain"
@@ -351,7 +351,7 @@ namespace HostlistDownloader.Modules.WindowsSystem
                     var lines = File.ReadAllLines(file);
                     foreach (var line in lines)
                     {
-                        if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
+                        if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith('#'))
                         {
                             writer.WriteLine(line);
                         }
